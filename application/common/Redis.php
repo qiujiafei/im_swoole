@@ -13,7 +13,7 @@ class Redis
 	public static function getInstance()
 	{
 		if (empty(self::$_instance)) {
-			self::$instance = new self();
+			self::$_instance = new self();
 		}
 
 		return self::$_instance;
@@ -23,7 +23,7 @@ class Redis
 	private function __construct()
 	{
 		$this->redis = new \Redis();
-		$result = $this->redis->connect(config('redis.host'), config('redis.port'), config('redis.timeOut'))
+		$result = $this->redis->connect(config('redis.host'), config('redis.port'), config('redis.timeOut'));
 		if ($result === false) {
 			throw new \Exception('redis connect error');
 		}
@@ -31,7 +31,7 @@ class Redis
 
 	public function set($key, $val, $time = 0)
 	{
-		if (!key) {
+		if (!$key) {
 			return '';
 		}
 
@@ -47,7 +47,7 @@ class Redis
 
 	public function get($key)
 	{
-		if (!key) {
+		if (!$key) {
 			return '';
 		}
 
