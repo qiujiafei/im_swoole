@@ -1,27 +1,29 @@
 <?php
-class Http
+class Ws
 {
 	CONST HOST = "0.0.0.0";
 	CONST PORT = 8811;
-	public $http = null;
+	public $ws = null;
 
 	public function __construct() {
-		$this->http = new swoole_http_server(self::HOST, self::PORT);
+		$this->ws = new swoole_websocket_server(self::HOST, self::PORT);
 
-		$this->http->set([
+		$this->ws->set([
 			'enable_static_handler' => true,
 			'document_root' => "/var/www/html/thinkphp5.1.29/public/static",
 			'worker_num' => 4,
 			'task_worker_num' => 4,
 		 ]);
+		
+		$this->ws->on("open", [$this, 'onOpen']);
+		$this->ws->on("message", [$this, 'onMessage']);
+		$this->ws->on("workerstart", [$this, 'onWorkerStart']);
+		$this->ws->on("request", [$this, 'onRequest']);
+		$this->ws->on("Task", [$this, 'onTask']);
+		$this->ws->on("Finish", [$this, 'onFinish']);
+		$this->ws->on("close", [$this, 'onClose']);
 
-		$this->http->on("workerstart", [$this, 'onWorkerStart']);
-		$this->http->on("request", [$this, 'onRequest']);
-		$this->http->on("Task", [$this, 'onTask']);
-		$this->http->on("Finish", [$this, 'onFinish']);
-		$this->http->on("close", [$this, 'onClose']);
-
-		$this->http->start();
+		$this->ws->start();
 	}
 
 	public function onWorkerStart($server,  $worker_id) {
@@ -56,7 +58,7 @@ class Http
 			}
 		}
 
-		$_POST['http_server'] = $this->http;
+		$_POST['http_server'] = $this->ws;
 		
 		ob_start();
 		try {
@@ -91,7 +93,28 @@ class Http
 	public function onClose($ws, $fd) {
 	        echo "clientid:{$fd}\n";
 	}
+
+	/**
+	* 监听ws连接
+	* @param $ws
+	* @param $request
+	*/
+	public function onOpen($ws, $request) {
+		// fd redis [1]
+		\app\common\lib\redis\Predis::getInstance()->sAdd(config('redis.live_game_key'), $request->fd);
+		var_dump($request->fd);
+	}
+
+	/**
+	* 监听ws消息事件
+	* @param $ws
+	* @param $frame
+	*/
+	public function onMessage($ws, $frame) {
+		echo "ser-push-message:{$frame->data}\n";
+		$ws->push($frame->fd, "server-push:".date("Y-m-d H:i:s"));
+	}
 }
 
 
-new Http();
+new Ws();
