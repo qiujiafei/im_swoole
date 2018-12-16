@@ -3,10 +3,21 @@ class Ws
 {
 	CONST HOST = "0.0.0.0";
 	CONST PORT = 8811;
+	CONST CHART_PORT = 8812;
+
 	public $ws = null;
 
 	public function __construct() {
+		require_once __DIR__ . '/../thinkphp/base.php';
+		think\Container::get('app')->run()->send();
+		\app\common\Redis::getInstance()->del(config('redis.live_game_key'));
+		
+		
+		
+		
 		$this->ws = new swoole_websocket_server(self::HOST, self::PORT);
+		
+		$this->ws->listen(self::HOST, self::CHART_PORT, SWOOLE_SOCK_TCP);
 
 		$this->ws->set([
 			'enable_static_handler' => true,
@@ -14,7 +25,7 @@ class Ws
 			'worker_num' => 4,
 			'task_worker_num' => 4,
 		 ]);
-		
+		$this->ws->on("start", [$this, 'onStart']);	
 		$this->ws->on("open", [$this, 'onOpen']);
 		$this->ws->on("message", [$this, 'onMessage']);
 		$this->ws->on("workerstart", [$this, 'onWorkerStart']);
@@ -28,7 +39,7 @@ class Ws
 
 	public function onWorkerStart($server,  $worker_id) {
 	    // 定义应用目录
-		require __DIR__ . '/../thinkphp/base.php';
+		require_once __DIR__ . '/../thinkphp/base.php';
 	}
 
 	public function onRequest($request, $response) {
@@ -51,6 +62,12 @@ class Ws
 			}
 		}
 		
+		$_FILES = [];
+		if(isset($request->files)) {
+			foreach($request->files as $k => $v) {
+				$_FILES[$k] = $v;
+			}
+		}
 		$_POST = [];
 		if (isset($request->post)) {
 			foreach ($request->post as $k => $v) {
@@ -79,19 +96,16 @@ class Ws
 	    // 分发 task 任务机制，让不同的任务 走不同的逻辑
 		require_once __DIR__ . '/../thinkphp/base.php';
 		think\Container::get('app')->run()->send();
+		var_dump($data);
 		$obj = new app\common\Task;
 		$method = $data['method'];
-		$flag = $obj->$method($data['data']);
+		$flag = $obj->$method($data['data'], $this->ws);
 		return $taskId;
 	}
 
 	public function onFinish($serv, $taskId, $data) {
 	    echo "taskId:{$taskId}\n";
 		echo "finish-data-sucess:{$data}\n";
-	}
-
-	public function onClose($ws, $fd) {
-	        echo "clientid:{$fd}\n";
 	}
 
 	/**
@@ -101,7 +115,9 @@ class Ws
 	*/
 	public function onOpen($ws, $request) {
 		// fd redis [1]
-		\app\common\lib\redis\Predis::getInstance()->sAdd(config('redis.live_game_key'), $request->fd);
+		require_once __DIR__ . '/../thinkphp/base.php';
+		think\Container::get('app')->run()->send();
+		\app\common\Redis::getInstance()->sAdd(config('redis.live_game_key'), $request->fd);
 		var_dump($request->fd);
 	}
 
@@ -111,8 +127,23 @@ class Ws
 	* @param $frame
 	*/
 	public function onMessage($ws, $frame) {
-		echo "ser-push-message:{$frame->data}\n";
-		$ws->push($frame->fd, "server-push:".date("Y-m-d H:i:s"));
+	}
+
+	/**
+	* 监听ws连接
+	* @param $ws
+	* @param $request
+	*/
+	public function onClose($ws, $fd) {
+		// fd redis [1]
+		require_once __DIR__ . '/../thinkphp/base.php';
+		think\Container::get('app')->run()->send();
+		\app\common\Redis::getInstance()->sRem(config('redis.live_game_key'), $fd);
+		var_dump($fd);
+	}
+
+	public function onStart($server) {
+		swoole_set_process_name("live_master");
 	}
 }
 

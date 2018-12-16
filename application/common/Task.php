@@ -31,9 +31,10 @@ class Task
 	public function pushLive($data, $serv)
 	{
 		$clients = Redis::getInstance()->sMembers(config('redis.live_game_key'));
-
-		foreach ($clients as $fd) {
-			$serv->push($fd, json_encode($data));
+		if (!empty($clients)) {
+			foreach ($clients as $fd) {
+				$serv->push((int)$fd, json_encode($data));
+			}
 		}
 	}
 }

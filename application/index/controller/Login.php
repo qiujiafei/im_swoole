@@ -21,11 +21,13 @@ class Login
 			echo $e->getMessage().'==='.$e->getFile().'==='.$e->getLine();
 		}
 		if ($redisCode == $code) {
+			$token =md5(RedisAction::userKey($phoneNum)); 
 			$data = [
 				'user' => $phoneNum,
-				'srcKey' => md5(RedisAction::userKey($phoneNum)),
+				'srcKey' => $token,
 				'time' => time(),
-				'isLogin' => true
+				'isLogin' => true,
+				'nick_name' => $_GET['nick_name'] ?? $phoneNum
 			];
 			try {
 				Redis::getInstance()->set(RedisAction::userKey($phoneNum), $data);

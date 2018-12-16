@@ -58,6 +58,21 @@ class Redis
 		return $this->redis->sMembers($key);
 	}
 	
+//	public function sAdd($key, $val)
+//	{
+//		return $this->redis->sadd($key, $val);
+//	}
+
+//	public function sRem($key, $val)
+//	{
+//		return $this->redis->srem($key, $val);
+//	}
+
+	public function del($key)
+	{
+		return $this->redis->del($key);
+	}
+
 	public function __call($name, $arguments)
 	{
 		if (count($arguments) != 2) {
